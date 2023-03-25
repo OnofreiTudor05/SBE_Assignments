@@ -1,5 +1,14 @@
 import numpy as np
 import operator
+import random
+
+stations = [1, 4, 7, 15, 23, 27, 69, 100]
+cities = ["Bucharest", "Harlau", "Braila", "Galati", "Darabani", "Dubai"]
+directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+dates = [f"{i}.04.2023" for i in range(10, 17)]
+temp_limits = (-20, 40)
+wind_limits = (0, 100)
+rain_limits = (0, 1)
 
 operator_dict = {
     '==': operator.eq,
@@ -78,23 +87,38 @@ class Subscription:
         return eval(evaluation_string)
     
 class SubscriptionGenerator:
-    def __init__(self, publication_generator, required_weights) -> None:
+    def __init__(self, publication_generator = None, required_weights = None) -> None:
         self.publication_generator = publication_generator
         # list of tuples [(0.3, 'city'), (0.3, 'date'), (0.2, 'station'), (0.2, 'wind')]
         self.required_weights = required_weights
 
-    def generate_subscription(self):
-        pass
-
+        count_city = int(subscriptions_count * freq_city)
+        remaining_count = (subscriptions_count - count_city) // (len(vars(Publication())) - 1)
+        
+        chosen_field = random.choice(len(vars(Publication())))
+        field_count = int(subscriptions_count * eq_op_freq)
+        curr_count_eq_op = 0
+        
+        output_subscriptions = []
+        for i in range(subscriptions_count):
+            iterator_subscription = []
+            for key, value in vars((Publication()).items():
+                match key:
+                    case "city":
+                        iterator_subscription.append((key, "==" if random.random() < freq_city else "!=", cities[np.random.randomint(0, len(cities))]))
+                    case "directions":
+                        iterator_subscription.append((key, "==" if random.randint(1, 11) % 2 == 0 else "!=", cities[np.random.randomint(0, len(directions))]))
+                    case "dates":
+                        iterator_subscription.append((key, "==" if random.randint(1, 11) % 2 == 0 else "!=", cities[np.random.randomint(0, len(directions))]))
+                    case _:
+                        
+                    
+                                   
+                                   
 if __name__ == "__main__":
-    stations = [1, 4, 7, 15, 23, 27, 69, 100]
-    cities = ["Bucharest", "Harlau", "Braila", "Galati", "Darabani", "Dubai"]
-    directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-    dates = [f"{i}.04.2023" for i in range(10, 17)]
-    temp_limits = (-20, 40)
-    wind_limits = (0, 100)
-    rain_limits = (0, 1)
-
     generator = PublicationGenerator(stations, cities, directions, dates, temp_limits, wind_limits, rain_limits)
     publications = generator.generate_publications(5)
     print(*[f"{str(x)}" for x in publications], sep='\n')
+    
+    subscription_generator = SubscriptionGenerator().generate_subscription(1000, 10000, 0.9, 0.7)
+    print(subscription_generator)
