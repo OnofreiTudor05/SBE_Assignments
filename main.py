@@ -74,20 +74,22 @@ class Subscription:
     def is_constraint_respected(self, position, publication):
         current_constraint = self.constraints[position]
         current_operation = operator_dict.get(current_constraint.operator)
-        evaluation_string = "current_operation(getattr(publication, current_constraint.factor), current_constaint.required_value)"
-        if eval(evaluation_string):
-            return False
-        return True
+        evaluation_string = "current_operation(getattr(publication, current_constraint.factor), current_constraint.required_value)"
+        return eval(evaluation_string):
     
 class SubscriptionGenerator:
     def __init__(self, publication_generator, required_weights) -> None:
         self.publication_generator = publication_generator
+        # list of tuples [(0.3, 'city'), (0.3, 'date'), (0.2, 'station'), (0.2, 'wind')]
         self.required_weights = required_weights
+
+    def generate_subscription(self):
+        pass
 
 if __name__ == "__main__":
     stations = [1, 4, 7, 15, 23, 27, 69, 100]
     cities = ["Bucharest", "Harlau", "Braila", "Galati", "Darabani", "Dubai"]
-    directions = ["N", "NE", "S", "NV", "3SE", "X"]
+    directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
     dates = [f"{i}.04.2023" for i in range(10, 17)]
     temp_limits = (-20, 40)
     wind_limits = (0, 100)
