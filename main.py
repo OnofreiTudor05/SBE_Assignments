@@ -75,7 +75,7 @@ class Subscription:
         current_constraint = self.constraints[position]
         current_operation = operator_dict.get(current_constraint.operator)
         evaluation_string = "current_operation(getattr(publication, current_constraint.factor), current_constraint.required_value)"
-        return eval(evaluation_string):
+        return eval(evaluation_string)
     
 class SubscriptionGenerator:
     def __init__(self, publication_generator, required_weights) -> None:
