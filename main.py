@@ -69,10 +69,10 @@ class Constraint:
     def __init__(self, factor, operator, required_value) -> None:
         self.factor = factor
         self.operator = operator
-        self.requried_value = required_value
+        self.required_value = required_value
 
     def __str__(self) -> str:
-        return f"(factor: {self.factor}, operator: {self.operator}, value: {self.requried_value});"
+        return f"(factor: {self.factor}, operator: {self.operator}, value: {self.required_value});"
 
 class Subscription:
     def __init__(self, constraints=None) -> None:
@@ -81,6 +81,11 @@ class Subscription:
     def __str__(self) -> str:
         return self.constraints
     
+    def add_constraint(self, constraint):
+        if constraint == None:
+            self.constraints = list()
+        self.constraints.append(constraint)
+    
     def is_constraint_respected(self, position, publication):
         current_constraint = self.constraints[position]
         current_operation = operator_dict.get(current_constraint.operator)
@@ -88,17 +93,100 @@ class Subscription:
         return eval(evaluation_string)
     
 class SubscriptionGenerator:
-    def __init__(self, publication_generator=None, required_weights=None) -> None:
+    def __init__(self, publication_generator=None, required_weights=None, equal_operation_frequency=None) -> None:
         self.publication_generator = publication_generator
-        # list of tuples [(0.3, 'city'), (0.3, 'date'), (0.2, 'station'), (0.2, 'wind')]
         self.required_weights = required_weights
+        # following operator is not supported yet
+        self.equal_operation_frequency = equal_operation_frequency
+
+    def generate_constraint_based_subscriptions(self, subscription_count):
+        # Get the total nubmer of subscriptions for each constraint
+        mapped_subscription_count = dict()
+        for req_weight in self.required_weights:
+            mapped_subscription_count[req_weight] = int(subscription_count * req_weight[1])
+
+        # Proof check that the number of subcriptions doesn't go over the assigned threshold
+        if sum(mapped_subscription_count.values()) > subscription_count:
+            logging.error("An invalid number of subscriptions count per constraint was found.")
+            exit(1)
+
+        # Remaining subscriptions that are missed
+        remaining_fields = subscription_count - sum(mapped_subscription_count.values())
+        if remaining_fields > 0:
+            logging.info(f"Subscription distribution missed {remaining_fields} subscriptions.")
+        
+        eq_op_count = int(subscription_count * self.equal_operation_frequency)
+        curr_count_eq_op = 0 # handle this
+        output_subscriptions = list()
+        for key, value in mapped_subscription_count.items():
+            iterator_subscription = list()
+            for _i in range(0, value):
+                match key[0]:
+                    case "city":
+                        constraint = Constraint(
+                            key[0],
+                            "==" if random.random() < key[1] else "!=",
+                            cities[np.random.randint(0, len(cities) - 1)]
+                        )
+                        subscription = Subscription().add_constraint(constraint)
+                        iterator_subscription.append(subscription)
+                    case "direction":
+                        constraint = Constraint(
+                            key[0],
+                            "==" if random.randint(1, 10) % 2 == 0 else "!=",
+                            directions[np.random.randint(0, len(directions) - 1)]
+                        )
+                        subscription = Subscription().add_constraint(constraint)
+                        iterator_subscription.append(subscription)
+                    case "date":
+                        constraint = Constraint(
+                            key, 
+                            "==" if random.randint(1, 10) % 2 == 0 else "!=", 
+                            dates[np.random.randint(0, len(dates) - 1)]
+                        )
+                        subscription = Subscription().add_constraint(constraint)
+                        iterator_subscription.append(subscription)
+                    case "station_id":
+                        constraint = Constraint(
+                            key,
+                            "==" if random.randint(1, 10) % 2 == 0 else "!=",
+                            stations[np.random.randint(0, len(stations) - 1)]
+                        )
+                        subscription = Subscription().add_constraint(constraint)
+                        iterator_subscription.append(subscription)
+                    case "temp":
+                        constraint = Constraint(
+                            key,
+                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
+                            np.random.randint(temp_limits[0], temp_limits[1])
+                        )
+                        subscription = Subscription().add_constraint(constraint)
+                        iterator_subscription.append(subscription)
+                    case "wind":
+                        constraint = Constraint(
+                            key,
+                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
+                            np.random.randint(wind_limits[0], wind_limits[1])
+                        )
+                        subscription = Subscription().add_constraint(constraint)
+                        iterator_subscription.append(subscription)
+                    case "rain":
+                        constraint = Constraint(
+                            key,
+                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
+                            np.random.randint(rain_limits[0], rain_limits[1])
+                        )
+                        subscription = Subscription().add_constraint(constraint)
+                        iterator_subscription.append(subscription)
+                    case _:
+                        logging.error("Argument was not matched.")
 
     def generate_subscription(self, subscription_count, freq_city, eq_op_freq):
         count_city = int(subscription_count * freq_city)
         remaining_count = (subscription_count - count_city) // (len(vars(Publication())) - 1)
         
         chosen_field = random.randint(0, len(vars(Publication())))
-        field_count = int(subscription_count * eq_op_freq)
+        eq_op_count = int(subscription_count * eq_op_freq)
         curr_count_eq_op = 0
         
         output_subscriptions = []
@@ -116,13 +204,13 @@ class SubscriptionGenerator:
                         iterator_subscription.append((
                             key, 
                             "==" if random.randint(1, 10) % 2 == 0 else "!=", 
-                            cities[np.random.randint(0, len(directions) - 1)]
+                            directions[np.random.randint(0, len(directions) - 1)]
                         ))
                     case "date":
                         iterator_subscription.append((
                             key, 
                             "==" if random.randint(1, 10) % 2 == 0 else "!=", 
-                            cities[np.random.randint(0, len(dates) - 1)]
+                            dates[np.random.randint(0, len(dates) - 1)]
                         ))
                     case "station_id":
                         iterator_subscription.append((
@@ -151,10 +239,23 @@ class SubscriptionGenerator:
                     case _:
                         logging.error("Argument was not matched.")
 
+            if curr_count_eq_op < eq_op_count and chosen_field != 'city':
+                pass
+
 if __name__ == "__main__":
     generator = PublicationGenerator(stations, cities, directions, dates, temp_limits, wind_limits, rain_limits)
     publications = generator.generate_publications(5)
     print(*[f"{str(x)}" for x in publications], sep='\n')
     
-    subscription_generator = SubscriptionGenerator().generate_subscription(1000, 10000, 0.7)
+    subscription_generator = SubscriptionGenerator().generate_subscription(1000, 0.9, 0.7)
     print(subscription_generator)
+
+    # a list of tuples [(field, frequency), ...]
+    field_weights = list(
+        tuple("city", 0.3),
+        tuple("wind", 0.3),
+        tuple("direction", 0.3),
+        tuple("temp", 0.1)
+    )
+    sub_generator = SubscriptionGenerator(generator, field_weights)
+
