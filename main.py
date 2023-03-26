@@ -1,6 +1,7 @@
 import numpy as np
 import operator
 import random
+import logging
 
 stations = [1, 4, 7, 15, 23, 27, 69, 100]
 cities = ["Bucharest", "Harlau", "Braila", "Galati", "Darabani", "Dubai"]
@@ -52,10 +53,10 @@ class PublicationGenerator:
 
     def generate_publication(self):
         new_publication = Publication()
-        new_publication.station_id = self.station_pool[np.random.randint(0, len(self.station_pool))]
-        new_publication.city = self.city_pool[np.random.randint(0, len(self.city_pool))]
-        new_publication.direction = self.direction_pool[np.random.randint(0, len(self.direction_pool))]
-        new_publication.date = self.date_pool[np.random.randint(0, len(self.date_pool))]
+        new_publication.station_id = self.station_pool[np.random.randint(0, len(self.station_pool) - 1)]
+        new_publication.city = self.city_pool[np.random.randint(0, len(self.city_pool) - 1)]
+        new_publication.direction = self.direction_pool[np.random.randint(0, len(self.direction_pool) - 1)]
+        new_publication.date = self.date_pool[np.random.randint(0, len(self.date_pool) - 1)]
         new_publication.temp = np.random.randint(self.temp_limits[0], self.temp_limits[1])
         new_publication.wind = np.random.randint(self.wind_limits[0], self.wind_limits[1])
         new_publication.rain = round(np.random.uniform(self.rain_limits[0], self.rain_limits[1]), 2)
@@ -87,38 +88,73 @@ class Subscription:
         return eval(evaluation_string)
     
 class SubscriptionGenerator:
-    def __init__(self, publication_generator = None, required_weights = None) -> None:
+    def __init__(self, publication_generator=None, required_weights=None) -> None:
         self.publication_generator = publication_generator
         # list of tuples [(0.3, 'city'), (0.3, 'date'), (0.2, 'station'), (0.2, 'wind')]
         self.required_weights = required_weights
 
-        count_city = int(subscriptions_count * freq_city)
-        remaining_count = (subscriptions_count - count_city) // (len(vars(Publication())) - 1)
+    def generate_subscription(self, subscription_count, freq_city, eq_op_freq):
+        count_city = int(subscription_count * freq_city)
+        remaining_count = (subscription_count - count_city) // (len(vars(Publication())) - 1)
         
-        chosen_field = random.choice(len(vars(Publication())))
-        field_count = int(subscriptions_count * eq_op_freq)
+        chosen_field = random.randint(0, len(vars(Publication())))
+        field_count = int(subscription_count * eq_op_freq)
         curr_count_eq_op = 0
         
         output_subscriptions = []
-        for i in range(subscriptions_count):
+        for i in range(subscription_count):
             iterator_subscription = []
-            for key, value in vars((Publication()).items():
+            for key, value in vars(Publication()).items():
                 match key:
                     case "city":
-                        iterator_subscription.append((key, "==" if random.random() < freq_city else "!=", cities[np.random.randomint(0, len(cities))]))
-                    case "directions":
-                        iterator_subscription.append((key, "==" if random.randint(1, 11) % 2 == 0 else "!=", cities[np.random.randomint(0, len(directions))]))
-                    case "dates":
-                        iterator_subscription.append((key, "==" if random.randint(1, 11) % 2 == 0 else "!=", cities[np.random.randomint(0, len(directions))]))
+                        iterator_subscription.append((
+                            key, 
+                            "==" if random.random() < freq_city else "!=", 
+                            cities[np.random.randint(0, len(cities) - 1)]
+                        ))
+                    case "direction":
+                        iterator_subscription.append((
+                            key, 
+                            "==" if random.randint(1, 10) % 2 == 0 else "!=", 
+                            cities[np.random.randint(0, len(directions) - 1)]
+                        ))
+                    case "date":
+                        iterator_subscription.append((
+                            key, 
+                            "==" if random.randint(1, 10) % 2 == 0 else "!=", 
+                            cities[np.random.randint(0, len(dates) - 1)]
+                        ))
+                    case "station_id":
+                        iterator_subscription.append((
+                            key,
+                            "==" if random.randint(1, 10) % 2 == 0 else "!=",
+                            stations[np.random.randint(0, len(stations) - 1)]
+                        ))
+                    case "temp":
+                        iterator_subscription.append((
+                            key,
+                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
+                            np.random.randint(temp_limits[0], temp_limits[1])
+                        ))
+                    case "wind":
+                        iterator_subscription.append((
+                            key,
+                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
+                            np.random.randint(wind_limits[0], wind_limits[1])
+                        ))
+                    case "rain":
+                        iterator_subscription.append((
+                            key,
+                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
+                            np.random.randint(rain_limits[0], rain_limits[1])
+                        ))
                     case _:
-                        
-                    
-                                   
-                                   
+                        logging.error("Argument was not matched.")
+
 if __name__ == "__main__":
     generator = PublicationGenerator(stations, cities, directions, dates, temp_limits, wind_limits, rain_limits)
     publications = generator.generate_publications(5)
     print(*[f"{str(x)}" for x in publications], sep='\n')
     
-    subscription_generator = SubscriptionGenerator().generate_subscription(1000, 10000, 0.9, 0.7)
+    subscription_generator = SubscriptionGenerator().generate_subscription(1000, 10000, 0.7)
     print(subscription_generator)
