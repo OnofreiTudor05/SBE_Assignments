@@ -199,67 +199,6 @@ class SubscriptionGenerator:
                     case _:
                         logging.error("Argument was not matched.")
 
-    def generate_subscription(self, subscription_count, freq_city, eq_op_freq):
-        count_city = int(subscription_count * freq_city)
-        remaining_count = (subscription_count - count_city) // (len(vars(Publication())) - 1)
-        
-        chosen_field = random.randint(0, len(vars(Publication())))
-        eq_op_count = int(subscription_count * eq_op_freq)
-        curr_count_eq_op = 0
-        
-        output_subscriptions = []
-        for i in range(subscription_count):
-            iterator_subscription = []
-            for key, value in vars(Publication()).items():
-                match key:
-                    case "city":
-                        iterator_subscription.append((
-                            key, 
-                            "==" if random.random() < freq_city else "!=", 
-                            cities[np.random.randint(0, len(cities) - 1)]
-                        ))
-                    case "direction":
-                        iterator_subscription.append((
-                            key, 
-                            "==" if random.randint(1, 10) % 2 == 0 else "!=", 
-                            directions[np.random.randint(0, len(directions) - 1)]
-                        ))
-                    case "date":
-                        iterator_subscription.append((
-                            key, 
-                            "==" if random.randint(1, 10) % 2 == 0 else "!=", 
-                            dates[np.random.randint(0, len(dates) - 1)]
-                        ))
-                    case "station_id":
-                        iterator_subscription.append((
-                            key,
-                            "==" if random.randint(1, 10) % 2 == 0 else "!=",
-                            stations[np.random.randint(0, len(stations) - 1)]
-                        ))
-                    case "temp":
-                        iterator_subscription.append((
-                            key,
-                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
-                            np.random.randint(temp_limits[0], temp_limits[1])
-                        ))
-                    case "wind":
-                        iterator_subscription.append((
-                            key,
-                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
-                            np.random.randint(wind_limits[0], wind_limits[1])
-                        ))
-                    case "rain":
-                        iterator_subscription.append((
-                            key,
-                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
-                            np.random.randint(rain_limits[0], rain_limits[1])
-                        ))
-                    case _:
-                        logging.error("Argument was not matched.")
-
-            if curr_count_eq_op < eq_op_count and chosen_field != 'city':
-                pass
-
 if __name__ == "__main__":
     generator = PublicationGenerator(stations, cities, directions, dates, temp_limits, wind_limits, rain_limits)
     publications = generator.generate_publications(5)
