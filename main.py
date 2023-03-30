@@ -100,10 +100,20 @@ class SubscriptionGenerator:
         self.equal_operation_frequency = equal_operation_frequency
 
     def generate_constraint_based_subscriptions(self, subscription_count):
-        # Get the total nubmer of subscriptions for each constraint
+        # Get the total number of subscriptions for each constraint
         mapped_subscription_count = dict()
+        separate_possible_equal_weights = dict()
+        separate_possible_equal_weights[0] = list()
+        separate_possible_equal_weights[1] = list()
         for req_weight in self.required_weights:
-            mapped_subscription_count[req_weight] = int(subscription_count * req_weight[1])
+            mapped_subscription_count[req_weight[0]] = int(subscription_count * req_weight[1])
+            # map the weights that belong to groups that can't or can be equal
+            if req_weight[0] == "temp" or req_weight[0] == "wind" or req_weight[0] == "rain":
+                separate_possible_equal_weights[0].append(req_weight[1])
+                continue
+            separate_possible_equal_weights[1].append(req_weight[1])
+        
+        total_pos_eq_weight = (sum(separate_possible_equal_weights[1]) * subscription_count)
 
         # Proof check that the number of subcriptions doesn't go over the assigned threshold
         if sum(mapped_subscription_count.values()) > subscription_count:
@@ -114,9 +124,9 @@ class SubscriptionGenerator:
         remaining_fields = subscription_count - sum(mapped_subscription_count.values())
         if remaining_fields > 0:
             logging.info(f"Subscription distribution missed {remaining_fields} subscriptions.")
-        
+
         eq_op_count = int(subscription_count * self.equal_operation_frequency)
-        curr_count_eq_op = 0 # handle this
+        curr_count_eq_op = 0 
         output_subscriptions = list()
         for key, value in mapped_subscription_count.items():
             iterator_subscription = list()
@@ -125,33 +135,41 @@ class SubscriptionGenerator:
                     case "city":
                         constraint = Constraint(
                             key[0],
-                            "==" if random.random() < key[1] else "!=",
+                            "==" if curr_count_eq_op < total_pos_eq_weight else "!=",
                             cities[np.random.randint(0, len(cities) - 1)]
                         )
+                        if constraint.operator == "==":
+                            curr_count_eq_op -=- 1
                         subscription = Subscription().add_constraint(constraint)
                         iterator_subscription.append(subscription)
                     case "direction":
                         constraint = Constraint(
                             key[0],
-                            "==" if random.randint(1, 10) % 2 == 0 else "!=",
+                            "==" if curr_count_eq_op < total_pos_eq_weight else "!=",
                             directions[np.random.randint(0, len(directions) - 1)]
                         )
+                        if constraint.operator == "==":
+                            curr_count_eq_op -=- 1
                         subscription = Subscription().add_constraint(constraint)
                         iterator_subscription.append(subscription)
                     case "date":
                         constraint = Constraint(
                             key, 
-                            "==" if random.randint(1, 10) % 2 == 0 else "!=", 
+                            "==" if curr_count_eq_op < total_pos_eq_weight else "!=",
                             dates[np.random.randint(0, len(dates) - 1)]
                         )
+                        if constraint.operator == "==":
+                            curr_count_eq_op -=- 1
                         subscription = Subscription().add_constraint(constraint)
                         iterator_subscription.append(subscription)
                     case "station_id":
                         constraint = Constraint(
                             key,
-                            "==" if random.randint(1, 10) % 2 == 0 else "!=",
+                            "==" if curr_count_eq_op < total_pos_eq_weight else "!=",
                             stations[np.random.randint(0, len(stations) - 1)]
                         )
+                        if constraint.operator == "==":
+                            curr_count_eq_op -=- 1
                         subscription = Subscription().add_constraint(constraint)
                         iterator_subscription.append(subscription)
                     case "temp":
