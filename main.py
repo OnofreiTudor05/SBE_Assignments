@@ -11,6 +11,18 @@ temp_limits = (-20, 40)
 wind_limits = (0, 100)
 rain_limits = (0, 1)
 
+FIELDS = ["stationId", "city", "direction", "date", "temp", "wind", "rain"]
+OPERATORS = ["==", "!=", "<", ">", "<=", ">="]
+VALID_OPERATIONS = {
+    "stationId": ["==", "!=", "<", ">", "<=", ">="],
+    "city": ["=="],
+    "directions": ["=="],
+    "dates": ["=="],
+    "temp": ["==", "!=", "<", ">", "<=", ">="],
+    "wind": ["==", "!=", "<", ">", "<=", ">="],
+    "rain": ["==", "!=", "<", ">", "<=", ">="]
+}
+
 operator_dict = {
     '==': operator.eq,
     "!=": operator.ne,
@@ -92,6 +104,71 @@ class Subscription:
         evaluation_string = "current_operation(getattr(publication, current_constraint.factor), current_constraint.required_value)"
         return eval(evaluation_string)
     
+class SubscriptionGeneratorV2:
+    def __init__(self, publication_generator=None, required_field_weights=None, required_operator_weights=None) -> None:
+        self.publication_generator = publication_generator
+        self.required_field_weights = self.validate_field_weights(required_field_weights)
+        self.required_operator_weights = self.validate_operator_weights(required_operator_weights)
+        self.total_validation()
+
+    def validate_field_weights(self, field_weights):
+        """Method used to filter and validate field weights provided
+        to the constructor. If a weight is not valid, it will log
+        an error and stop.
+
+        Args:
+            field_weights (list): a list containing tuples, the first 
+            element in the tuple is the field (string) and the second
+            is a weight (a float value 0.0 < x < 1.0).
+
+        Returns:
+            list: the same list of tuples which is validated.
+        """
+        for fw in field_weights:
+            if fw[1] < 0 or fw[1] > 1:
+                logging.error(f"Field {fw[0]} doesn't use a valid weight.")
+                exit(1)
+        return field_weights
+
+    def validate_operator_weights(self, operator_weights):
+        """Method used to filter and validate operator weights provided
+        to the constructor. If a weight is not valid, it will log
+        an error and stop.
+
+        Args:
+            operator_weights (list): a list containing tuples, the first 
+            element in the tuple is the operator (string) and the second
+            is a weight (a float value 0.0 < x < 1.0).
+
+        Returns:
+            list: the same list of tuples which is validated.
+        """
+        for ow in operator_weights:
+            if ow[0] not in OPERATORS:
+                logging.error(f"Operator {ow[0]} is not valid.")
+                exit(1)
+            if ow[1] < 0 or ow[1] > 1:
+                logging.error(f"Operator {ow[1]} doesn't use a valid weight.")
+                exit(1)
+        return operator_weights
+    
+    def total_validation(self):
+        """Method used as a final validation in the constructor.
+        It takes the field and operator and checks an existing map
+        of valid operators to check if it can be used for the specified
+        field. It will log an error and exit the program if the validation
+        condition is not met.
+        """
+        # Short-circuit
+        if len(self.required_field_weights) != len(self.required_operator_weights):
+            logging.error("Validation failed due two inconsistent number of field and operator weights provided.")
+        mapped_elements = list(map(lambda t: (t[0][0], t[1][0]), zip(self.required_field_weights, self.required_operator_weights)))
+        for me in mapped_elements:
+            if me[1] not in VALID_OPERATIONS[me[0]]:
+                logging.error(f"Invalid operator {me[1]}. It doesn't correspond with the available operators for the {me[0]} field.")
+                exit(1)
+        
+
 class SubscriptionGenerator:
     def __init__(self, publication_generator=None, required_weights=None, equal_operation_frequency=None) -> None:
         self.publication_generator = publication_generator
@@ -204,15 +281,12 @@ if __name__ == "__main__":
     publications = generator.generate_publications(5)
     print(*[f"{str(x)}" for x in publications], sep='\n')
     
-    subscription_generator = SubscriptionGenerator().generate_subscription(1000, 0.9, 0.7)
-    print(subscription_generator)
-
     # a list of tuples [(field, frequency), ...]
-    field_weights = list(
-        tuple("city", 0.3),
-        tuple("wind", 0.3),
-        tuple("direction", 0.3),
-        tuple("temp", 0.1)
-    )
-    sub_generator = SubscriptionGenerator(generator, field_weights)
+    # field_weights = list(
+    #     tuple("city", 0.3),
+    #     tuple("wind", 0.3),
+    #     tuple("direction", 0.3),
+    #     tuple("temp", 0.1)
+    # )
+    # sub_generator = SubscriptionGenerator(generator, field_weights)
 
