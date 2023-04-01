@@ -113,10 +113,13 @@ class Subscription:
         self.constraints = constraints
 
     def __str__(self) -> str:
-        return self.constraints
+        reprt = "Subscription Constraints: ("
+        for constraint in self.constraints:
+            reprt += str(constraint)
+        return reprt + ")"
     
     def add_constraint(self, constraint):
-        if constraint == None:
+        if self.constraints == None:
             self.constraints = list()
         self.constraints.append(constraint)
     
@@ -191,7 +194,7 @@ class SubscriptionGeneratorV2:
                 logging.error(f"Invalid operator {me[1]}. It doesn't correspond with the available operators for the {me[0]} field.")
                 exit(1)
 
-    def generate_subscriptions(self):
+    def generate_constraints(self):
         # 0 field name 1 field weight 2 operator 3 operator weight
         mapped_field_operator_weights = [t1 + t2 for t1, t2 in zip(self.required_field_weights, self.required_operator_weights)]
         mapped_field_operator_weights = sorted(mapped_field_operator_weights, key=lambda x: x[1], reverse=True)
@@ -281,14 +284,40 @@ class SubscriptionGeneratorV2:
         return combined_constraints_list
     
     def compress_generated_constraints(self):
-        pass
+        constraint_pool = self.generate_constraints()
+        subscription_list = list()
+
+        for constraint in constraint_pool[0]:
+            sub = Subscription()
+            sub.add_constraint(constraint)
+            subscription_list.append(sub)
+        
+        for constraint_list in constraint_pool[1:]:
+            for position, constraint in enumerate(constraint_list):
+                if len(subscription_list) < self.subscription_count:
+                    sub = Subscription()
+                    sub.add_constraint(constraint)
+                    subscription_list.append(sub)
+                else:
+                    break
+
+            current_position = position
+            if current_position < len(constraint_list):
+                for subscription in subscription_list:
+                    subscription.add_constraint(constraint_list[current_position])
+                    current_position += 1
+                    if current_position >= len(constraint_list):
+                        break
+
+            np.random.shuffle(subscription_list)
+        return subscription_list
 
 import threading
 import time
 
 def thread_generate_subscriptions():
     global thread_result
-    thread_result = sub_generator.generate_subscriptions()
+    thread_result = sub_generator.generate_constraints()
 
 if __name__ == "__main__":
     generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
@@ -296,14 +325,17 @@ if __name__ == "__main__":
     print(*[f"{str(x)}" for x in publications], sep='\n')
 
     sub_generator = SubscriptionGeneratorV2(generator, 100, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
+    sub = sub_generator.compress_generated_constraints()
+    for s in sub:
+        print(s)
         
-    our_thread = threading.Thread(target=thread_generate_subscriptions)
-    start = time.time()
-    our_thread.start()
+    # our_thread = threading.Thread(target=thread_generate_subscriptions)
+    # start = time.time()
+    # our_thread.start()
     
-    our_thread.join()
+    # our_thread.join()
     
-    print('OUR Thread result:', thread_result)
+    # print('OUR Thread result:', thread_result)
 
     
 #     thread = threading.Thread(target=thread_func)
@@ -313,8 +345,8 @@ if __name__ == "__main__":
 #     threading_obj = threading.Thread(target=sub_generator.generate_subscriptions, args=())
 #     threading_obj.start()
 #     threading_obj.join()
-    end = time.time()
-    print(f"Duration: {end - start}")
+    # end = time.time()
+    # print(f"Duration: {end - start}")
     # constraints = sub_generator.generate_subscriptions()
     # for constraint in constraints:
     #     for c in constraint:
