@@ -1,27 +1,49 @@
 import numpy as np
 import operator
-import random
 import logging
+from configparser import ConfigParser
 
-STATIONS = [1, 4, 7, 15, 23, 27, 69, 100]
-CITIES = ["Bucharest", "Harlau", "Braila", "Galati", "Darabani", "Dubai"]
-DIRECTIONS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-DATES = [f"{i}.04.2023" for i in range(10, 17)]
-TEMP_LIMITS = (-20, 40)
-WIND_LIMITS = (0, 100)
-RAIN_LIMITS = (0, 1)
+config_object = ConfigParser()
+config_object.read("config.ini")
 
-FIELDS = ["stationId", "city", "direction", "date", "temp", "wind", "rain"]
-OPERATORS = ["==", "!=", "<", ">", "<=", ">="]
+STATIONS = [int(x) for x in config_object["FIELDPROPERTIES"]["stationIds"].split()]
+CITIES = config_object["FIELDPROPERTIES"]["cities"].split()
+DIRECTIONS = config_object["FIELDPROPERTIES"]["directions"].split()
+DATES = config_object["FIELDPROPERTIES"]["dates"].split()
+TEMP_LIMITS = tuple(config_object["FIELDPROPERTIES"]["temp"].split())
+WIND_LIMITS = tuple(config_object["FIELDPROPERTIES"]["wind"].split())
+RAIN_LIMITS = tuple(config_object["FIELDPROPERTIES"]["rain"].split())
+
+FIELDS = config_object["FIELDS"]["fields"].split()
+OPERATORS = config_object["FIELDS"]["operators"].split()
 VALID_OPERATIONS = {
-    "stationId": ["==", "!=", "<", ">", "<=", ">="],
-    "city": ["=="],
-    "direction": ["=="],
-    "date": ["=="],
-    "temp": ["==", "!=", "<", ">", "<=", ">="],
-    "wind": ["==", "!=", "<", ">", "<=", ">="],
-    "rain": ["==", "!=", "<", ">", "<=", ">="]
+    "stationId": config_object["FIELDVALIDOPERATORS"]["opstationId"].split(),
+    "city": [config_object["FIELDVALIDOPERATORS"]["opcity"]],
+    "direction": [config_object["FIELDVALIDOPERATORS"]["opdirection"]],
+    "date": [config_object["FIELDVALIDOPERATORS"]["opdate"]],
+    "temp": config_object["FIELDVALIDOPERATORS"]["optemp"].split(),
+    "wind": config_object["FIELDVALIDOPERATORS"]["opwind"].split(),
+    "rain": config_object["FIELDVALIDOPERATORS"]["oprain"].split()
 }
+
+field_filter = ["fwstationIds", "fwcities", "fwdirections", "fwdates", "fwtemp", "fwwind", "fwrain"]
+FIELD_WEIGHTS = []
+for ff in field_filter:
+    try:
+        FIELD_WEIGHTS.append(tuple(float(val) if "." in val else val for val in config_object["FIELDWEIGHTS"][ff].split()))
+    except KeyError:
+        pass
+
+operator_filter = ["owstationIds", "owcities", "owdirections", "owdates", "owtemp", "owwind", "owrain"]
+OPERATOR_WEIGHTS = []
+for of in operator_filter:
+    try:
+        OPERATOR_WEIGHTS.append(tuple(float(val) if "." in val else val for val in config_object["OPERATORWEIGHTS"][of].split()))
+    except KeyError:
+        pass
+
+MIN_THREAD_COUNT = int(config_object["THREADSETUP"]["min_count"])
+MAX_THREAD_COUNT = int(config_object["THREADSETUP"]["max_count"])
 
 operator_dict = {
     '==': operator.eq,
@@ -257,7 +279,7 @@ class SubscriptionGeneratorV2:
                         logging.error("Argument was not matched.")
             combined_constraints_list.append(constraints_list)
         return combined_constraints_list
-
+    
     def compress_generated_constraints(self):
         pass
 
@@ -272,29 +294,8 @@ if __name__ == "__main__":
     generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
     publications = generator.generate_publications(5)
     print(*[f"{str(x)}" for x in publications], sep='\n')
-    
-    # a list of tuples [(field, frequency), ...]
-    field_weights = [
-        ("stationId", 0.7),
-        ("city", 0.5),
-        ("direction", 0.8),
-        ("date", 0.2),
-        ("temp", 0.1),
-        ("wind", 0.3),
-        ("rain", 0.5)
-    ]
 
-    operator_weights = [        
-        ("==", 0.5),
-        ("==", 0.9),
-        ("==", 0.5),
-        ("==", 0.2),
-        (">", 0.8),
-        (">=", 0.3),
-        ("<", 0.3)
-    ]
-    
-    sub_generator = SubscriptionGeneratorV2(generator, 1000000, field_weights, operator_weights)
+    sub_generator = SubscriptionGeneratorV2(generator, 100, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
         
     our_thread = threading.Thread(target=thread_generate_subscriptions)
     start = time.time()
@@ -315,6 +316,6 @@ if __name__ == "__main__":
     end = time.time()
     print(f"Duration: {end - start}")
     # constraints = sub_generator.generate_subscriptions()
-    for constraint in constraints:
-        for c in constraint:
-            print(str(c))
+    # for constraint in constraints:
+    #     for c in constraint:
+    #         print(str(c))
