@@ -16,8 +16,8 @@ OPERATORS = ["==", "!=", "<", ">", "<=", ">="]
 VALID_OPERATIONS = {
     "stationId": ["==", "!=", "<", ">", "<=", ">="],
     "city": ["=="],
-    "directions": ["=="],
-    "dates": ["=="],
+    "direction": ["=="],
+    "date": ["=="],
     "temp": ["==", "!=", "<", ">", "<=", ">="],
     "wind": ["==", "!=", "<", ">", "<=", ">="],
     "rain": ["==", "!=", "<", ">", "<=", ">="]
@@ -105,8 +105,9 @@ class Subscription:
         return eval(evaluation_string)
     
 class SubscriptionGeneratorV2:
-    def __init__(self, publication_generator=None, required_field_weights=None, required_operator_weights=None) -> None:
+    def __init__(self, publication_generator=None, subscription_count=None, required_field_weights=None, required_operator_weights=None) -> None:
         self.publication_generator = publication_generator
+        self.subscription_count = subscription_count
         self.required_field_weights = self.validate_field_weights(required_field_weights)
         self.required_operator_weights = self.validate_operator_weights(required_operator_weights)
         self.total_validation()
@@ -167,7 +168,44 @@ class SubscriptionGeneratorV2:
             if me[1] not in VALID_OPERATIONS[me[0]]:
                 logging.error(f"Invalid operator {me[1]}. It doesn't correspond with the available operators for the {me[0]} field.")
                 exit(1)
-        
+
+    def generate_subscriptions(self):
+        # 0 field name 1 field weight 2 operator 3 operator weight
+        mapped_field_operator_weights = [t1 + t2 for t1, t2 in zip(self.required_field_weights, self.required_operator_weights)]
+        mapped_field_operator_weights = sorted(mapped_field_operator_weights, key=lambda x: x[1], reverse=True)
+
+        combined_constraints_list = list()
+        for mfow in mapped_field_operator_weights:
+            constraints_list = list()
+            field_subscription_count = int(mfow[1] * self.subscription_count)
+
+            if field_subscription_count + int((1 - mfow[1]) * self.subscription_count) != self.subscription_count:
+                logging.warning(f"A total of {self.subscription_count - field_subscription_count - int((1 - mfow[1]) * self.subscription_count)} subscriptions have been lost due to rounding.")
+
+            operator_field_count = int(mfow[3] * field_subscription_count)
+
+            if operator_field_count + int((1 - mfow[3]) * field_subscription_count) != field_subscription_count:
+                logging.warning(f"A total of {field_subscription_count - operator_field_count - int((1 - mfow[3]) * field_subscription_count)} correct matches have been lost due to rounding.")
+
+            current_operator_count = 0
+            for _i in range(0, field_subscription_count):
+                match mfow[0]:
+                    case "city":
+                        constraint = Constraint(
+                            mfow[0],
+                            mfow[2] if current_operator_count < operator_field_count else "!=",
+                            cities[np.random.randint(0, len(cities) - 1)]
+                        )
+                        if constraint.operator == mfow[2]:
+                            current_operator_count += 1
+                        constraints_list.append(constraint)
+                    case _:
+                        logging.error("Argument was not matched.")
+            combined_constraints_list.append(constraints_list)
+        return combined_constraints_list
+
+    def compress_generated_constraints(self):
+        pass
 
 class SubscriptionGenerator:
     def __init__(self, publication_generator=None, required_weights=None, equal_operation_frequency=None) -> None:
@@ -282,11 +320,28 @@ if __name__ == "__main__":
     print(*[f"{str(x)}" for x in publications], sep='\n')
     
     # a list of tuples [(field, frequency), ...]
-    # field_weights = list(
-    #     tuple("city", 0.3),
-    #     tuple("wind", 0.3),
-    #     tuple("direction", 0.3),
-    #     tuple("temp", 0.1)
-    # )
-    # sub_generator = SubscriptionGenerator(generator, field_weights)
+    field_weights = [
+        ("stationId", 0.7),
+        ("city", 0.5),
+        ("direction", 0.8),
+        ("date", 0.2),
+        ("temp", 0.1),
+        ("wind", 0.3),
+        ("rain", 0.5)
+    ]
 
+    operator_weights = [        
+        ("==", 0.5),
+        ("==", 0.9),
+        ("==", 0.5),
+        ("==", 0.2),
+        (">", 0.8),
+        (">=", 0.3),
+        ("<", 0.3)
+    ]
+
+    sub_generator = SubscriptionGeneratorV2(generator, 100, field_weights, operator_weights)
+    constraints = sub_generator.generate_subscriptions()
+    for constraint in constraints:
+        for c in constraint:
+            print(str(c))
