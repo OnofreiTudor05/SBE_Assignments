@@ -3,13 +3,13 @@ import operator
 import random
 import logging
 
-stations = [1, 4, 7, 15, 23, 27, 69, 100]
-cities = ["Bucharest", "Harlau", "Braila", "Galati", "Darabani", "Dubai"]
-directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-dates = [f"{i}.04.2023" for i in range(10, 17)]
-temp_limits = (-20, 40)
-wind_limits = (0, 100)
-rain_limits = (0, 1)
+STATIONS = [1, 4, 7, 15, 23, 27, 69, 100]
+CITIES = ["Bucharest", "Harlau", "Braila", "Galati", "Darabani", "Dubai"]
+DIRECTIONS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+DATES = [f"{i}.04.2023" for i in range(10, 17)]
+TEMP_LIMITS = (-20, 40)
+WIND_LIMITS = (0, 100)
+RAIN_LIMITS = (0, 1)
 
 FIELDS = ["stationId", "city", "direction", "date", "temp", "wind", "rain"]
 OPERATORS = ["==", "!=", "<", ">", "<=", ">="]
@@ -194,7 +194,61 @@ class SubscriptionGeneratorV2:
                         constraint = Constraint(
                             mfow[0],
                             mfow[2] if current_operator_count < operator_field_count else "!=",
-                            cities[np.random.randint(0, len(cities) - 1)]
+                            CITIES[np.random.randint(0, len(CITIES) - 1)]
+                        )
+                        if constraint.operator == mfow[2]:
+                            current_operator_count += 1
+                        constraints_list.append(constraint)
+                    case "stationId":
+                        constraint = Constraint(
+                            mfow[0],
+                            mfow[2] if current_operator_count < operator_field_count else np.random.choice(VALID_OPERATIONS["stationId"].remove(mfow[2])),
+                            STATIONS[np.random.randint(0, len(STATIONS) - 1)]
+                        )
+                        if constraint.operator == mfow[2]:
+                            current_operator_count += 1
+                        constraints_list.append(constraint)
+                    case "direction":
+                        constraint = Constraint(
+                            mfow[0],
+                            mfow[2] if current_operator_count < operator_field_count else "!=",
+                            DIRECTIONS[np.random.randint(0, len(DIRECTIONS) - 1)]
+                        )
+                        if constraint.operator == mfow[2]:
+                            current_operator_count += 1
+                        constraints_list.append(constraint)
+                    case "date":
+                        constraint = Constraint(
+                            mfow[0],
+                            mfow[2] if current_operator_count < operator_field_count else "!=",
+                            DATES[np.random.randint(0, len(DATES) - 1)]
+                        )
+                        if constraint.operator == mfow[2]:
+                            current_operator_count += 1
+                        constraints_list.append(constraint)
+                    case "temp":
+                        constraint = Constraint(
+                            mfow[0],
+                            mfow[2] if current_operator_count < operator_field_count else np.random.choice(VALID_OPERATIONS["temp"].remove(mfow[2])),
+                            np.random.randint(TEMP_LIMITS[0], TEMP_LIMITS[1])
+                        )
+                        if constraint.operator == mfow[2]:
+                            current_operator_count += 1
+                        constraints_list.append(constraint)
+                    case "wind":
+                        constraint = Constraint(
+                            mfow[0],
+                            mfow[2] if current_operator_count < operator_field_count else np.random.choice(VALID_OPERATIONS["wind"].remove(mfow[2])),
+                            np.random.randint(WIND_LIMITS[0], WIND_LIMITS[1])
+                        )
+                        if constraint.operator == mfow[2]:
+                            current_operator_count += 1
+                        constraints_list.append(constraint)
+                    case "rain":
+                        constraint = Constraint(
+                            mfow[0],
+                            mfow[2] if current_operator_count < operator_field_count else np.random.choice(VALID_OPERATIONS["rain"].remove(mfow[2])),
+                            round(np.random.uniform(RAIN_LIMITS[0], RAIN_LIMITS[1]), 1)
                         )
                         if constraint.operator == mfow[2]:
                             current_operator_count += 1
@@ -207,115 +261,8 @@ class SubscriptionGeneratorV2:
     def compress_generated_constraints(self):
         pass
 
-class SubscriptionGenerator:
-    def __init__(self, publication_generator=None, required_weights=None, equal_operation_frequency=None) -> None:
-        self.publication_generator = publication_generator
-        self.required_weights = required_weights
-        # following operator is not supported yet
-        self.equal_operation_frequency = equal_operation_frequency
-
-    def generate_constraint_based_subscriptions(self, subscription_count):
-        # Get the total number of subscriptions for each constraint
-        mapped_subscription_count = dict()
-        separate_possible_equal_weights = dict()
-        separate_possible_equal_weights[0] = list()
-        separate_possible_equal_weights[1] = list()
-        for req_weight in self.required_weights:
-            mapped_subscription_count[req_weight[0]] = int(subscription_count * req_weight[1])
-            # map the weights that belong to groups that can't or can be equal
-            if req_weight[0] == "temp" or req_weight[0] == "wind" or req_weight[0] == "rain":
-                separate_possible_equal_weights[0].append(req_weight[1])
-                continue
-            separate_possible_equal_weights[1].append(req_weight[1])
-        
-        total_pos_eq_weight = (sum(separate_possible_equal_weights[1]) * subscription_count)
-
-        # Proof check that the number of subcriptions doesn't go over the assigned threshold
-        if sum(mapped_subscription_count.values()) > subscription_count:
-            logging.error("An invalid number of subscriptions count per constraint was found.")
-            exit(1)
-
-        # Remaining subscriptions that are missed
-        remaining_fields = subscription_count - sum(mapped_subscription_count.values())
-        if remaining_fields > 0:
-            logging.info(f"Subscription distribution missed {remaining_fields} subscriptions.")
-
-        eq_op_count = int(subscription_count * self.equal_operation_frequency)
-        curr_count_eq_op = 0 
-        output_subscriptions = list()
-        for key, value in mapped_subscription_count.items():
-            iterator_subscription = list()
-            for _i in range(0, value):
-                match key[0]:
-                    case "city":
-                        constraint = Constraint(
-                            key[0],
-                            "==" if curr_count_eq_op < total_pos_eq_weight else "!=",
-                            cities[np.random.randint(0, len(cities) - 1)]
-                        )
-                        if constraint.operator == "==":
-                            curr_count_eq_op -=- 1
-                        subscription = Subscription().add_constraint(constraint)
-                        iterator_subscription.append(subscription)
-                    case "direction":
-                        constraint = Constraint(
-                            key[0],
-                            "==" if curr_count_eq_op < total_pos_eq_weight else "!=",
-                            directions[np.random.randint(0, len(directions) - 1)]
-                        )
-                        if constraint.operator == "==":
-                            curr_count_eq_op -=- 1
-                        subscription = Subscription().add_constraint(constraint)
-                        iterator_subscription.append(subscription)
-                    case "date":
-                        constraint = Constraint(
-                            key, 
-                            "==" if curr_count_eq_op < total_pos_eq_weight else "!=",
-                            dates[np.random.randint(0, len(dates) - 1)]
-                        )
-                        if constraint.operator == "==":
-                            curr_count_eq_op -=- 1
-                        subscription = Subscription().add_constraint(constraint)
-                        iterator_subscription.append(subscription)
-                    case "station_id":
-                        constraint = Constraint(
-                            key,
-                            "==" if curr_count_eq_op < total_pos_eq_weight else "!=",
-                            stations[np.random.randint(0, len(stations) - 1)]
-                        )
-                        if constraint.operator == "==":
-                            curr_count_eq_op -=- 1
-                        subscription = Subscription().add_constraint(constraint)
-                        iterator_subscription.append(subscription)
-                    case "temp":
-                        constraint = Constraint(
-                            key,
-                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
-                            np.random.randint(temp_limits[0], temp_limits[1])
-                        )
-                        subscription = Subscription().add_constraint(constraint)
-                        iterator_subscription.append(subscription)
-                    case "wind":
-                        constraint = Constraint(
-                            key,
-                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
-                            np.random.randint(wind_limits[0], wind_limits[1])
-                        )
-                        subscription = Subscription().add_constraint(constraint)
-                        iterator_subscription.append(subscription)
-                    case "rain":
-                        constraint = Constraint(
-                            key,
-                            "<=" if random.randint(1, 10) % 2 == 0 else ">",
-                            np.random.randint(rain_limits[0], rain_limits[1])
-                        )
-                        subscription = Subscription().add_constraint(constraint)
-                        iterator_subscription.append(subscription)
-                    case _:
-                        logging.error("Argument was not matched.")
-
 if __name__ == "__main__":
-    generator = PublicationGenerator(stations, cities, directions, dates, temp_limits, wind_limits, rain_limits)
+    generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
     publications = generator.generate_publications(5)
     print(*[f"{str(x)}" for x in publications], sep='\n')
     
