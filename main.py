@@ -202,7 +202,7 @@ class SubscriptionGeneratorV2:
                     case "stationId":
                         constraint = Constraint(
                             mfow[0],
-                            mfow[2] if current_operator_count < operator_field_count else np.random.choice(VALID_OPERATIONS["stationId"].remove(mfow[2])),
+                            mfow[2] if current_operator_count < operator_field_count else np.random.choice([x for x in VALID_OPERATIONS["stationId"] if x != mfow[2]]),
                             STATIONS[np.random.randint(0, len(STATIONS) - 1)]
                         )
                         if constraint.operator == mfow[2]:
@@ -229,7 +229,7 @@ class SubscriptionGeneratorV2:
                     case "temp":
                         constraint = Constraint(
                             mfow[0],
-                            mfow[2] if current_operator_count < operator_field_count else np.random.choice(VALID_OPERATIONS["temp"].remove(mfow[2])),
+                            mfow[2] if current_operator_count < operator_field_count else np.random.choice([x for x in VALID_OPERATIONS["temp"] if x != mfow[2]]),
                             np.random.randint(TEMP_LIMITS[0], TEMP_LIMITS[1])
                         )
                         if constraint.operator == mfow[2]:
@@ -238,7 +238,7 @@ class SubscriptionGeneratorV2:
                     case "wind":
                         constraint = Constraint(
                             mfow[0],
-                            mfow[2] if current_operator_count < operator_field_count else np.random.choice(VALID_OPERATIONS["wind"].remove(mfow[2])),
+                            mfow[2] if current_operator_count < operator_field_count else np.random.choice([x for x in VALID_OPERATIONS["wind"] if x != mfow[2]]),
                             np.random.randint(WIND_LIMITS[0], WIND_LIMITS[1])
                         )
                         if constraint.operator == mfow[2]:
@@ -247,7 +247,7 @@ class SubscriptionGeneratorV2:
                     case "rain":
                         constraint = Constraint(
                             mfow[0],
-                            mfow[2] if current_operator_count < operator_field_count else np.random.choice(VALID_OPERATIONS["rain"].remove(mfow[2])),
+                            mfow[2] if current_operator_count < operator_field_count else np.random.choice([x for x in VALID_OPERATIONS["rain"] if x != mfow[2]]),
                             round(np.random.uniform(RAIN_LIMITS[0], RAIN_LIMITS[1]), 1)
                         )
                         if constraint.operator == mfow[2]:
@@ -260,6 +260,13 @@ class SubscriptionGeneratorV2:
 
     def compress_generated_constraints(self):
         pass
+
+import threading
+import time
+
+def thread_generate_subscriptions():
+    global thread_result
+    thread_result = sub_generator.generate_subscriptions()
 
 if __name__ == "__main__":
     generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
@@ -286,9 +293,28 @@ if __name__ == "__main__":
         (">=", 0.3),
         ("<", 0.3)
     ]
+    
+    sub_generator = SubscriptionGeneratorV2(generator, 1000000, field_weights, operator_weights)
+        
+    our_thread = threading.Thread(target=thread_generate_subscriptions)
+    start = time.time()
+    our_thread.start()
+    
+    our_thread.join()
+    
+    print('OUR Thread result:', thread_result)
 
-    sub_generator = SubscriptionGeneratorV2(generator, 100, field_weights, operator_weights)
-    constraints = sub_generator.generate_subscriptions()
+    
+#     thread = threading.Thread(target=thread_func)
+#     thread.start()
+    
+#     start = time.time()
+#     threading_obj = threading.Thread(target=sub_generator.generate_subscriptions, args=())
+#     threading_obj.start()
+#     threading_obj.join()
+    end = time.time()
+    print(f"Duration: {end - start}")
+    # constraints = sub_generator.generate_subscriptions()
     for constraint in constraints:
         for c in constraint:
             print(str(c))
