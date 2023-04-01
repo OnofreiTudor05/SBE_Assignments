@@ -10,9 +10,9 @@ STATIONS = [int(x) for x in config_object["FIELDPROPERTIES"]["stationIds"].split
 CITIES = config_object["FIELDPROPERTIES"]["cities"].split()
 DIRECTIONS = config_object["FIELDPROPERTIES"]["directions"].split()
 DATES = config_object["FIELDPROPERTIES"]["dates"].split()
-TEMP_LIMITS = tuple(config_object["FIELDPROPERTIES"]["temp"].split())
-WIND_LIMITS = tuple(config_object["FIELDPROPERTIES"]["wind"].split())
-RAIN_LIMITS = tuple(config_object["FIELDPROPERTIES"]["rain"].split())
+TEMP_LIMITS = tuple(int(x) for x in config_object["FIELDPROPERTIES"]["temp"].split())
+WIND_LIMITS = tuple(int(x) for x in config_object["FIELDPROPERTIES"]["wind"].split())
+RAIN_LIMITS = tuple(float(x) for x in config_object["FIELDPROPERTIES"]["rain"].split())
 
 FIELDS = config_object["FIELDS"]["fields"].split()
 OPERATORS = config_object["FIELDS"]["operators"].split()
