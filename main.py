@@ -2,6 +2,7 @@ import numpy as np
 import operator
 import logging
 from configparser import ConfigParser
+import threading
 
 config_object = ConfigParser()
 config_object.read("config.ini")
@@ -55,6 +56,9 @@ operator_dict = {
     ">=": operator.ge
 }
 
+global publication_list
+publication_list = list()
+
 class Publication:
     def __init__(self, station_id=None, city=None, temp=None, rain=None, wind=None, direction=None, date=None) -> None:
         self.station_id = station_id
@@ -96,9 +100,32 @@ class PublicationGenerator:
         new_publication.wind = np.random.randint(self.wind_limits[0], self.wind_limits[1])
         new_publication.rain = round(np.random.uniform(self.rain_limits[0], self.rain_limits[1]), 2)
         return new_publication
+    
+    def generate_publication_thread(self, number_of_publications):
+        publication_list.append([self.generate_publication() for _ in range(number_of_publications)])
 
     def generate_publications(self, number):
-        return [self.generate_publication() for _ in range(number)]
+        thread_list = list()
+        number_per_thread = int(number / SELECTED_THREAD_COUNT)
+
+        first = 0
+        if number_per_thread * SELECTED_THREAD_COUNT < number:
+            logging.warning("Adjusting number of publications per thread to be generated to fit the specific number provided.")
+            first = number - number_per_thread * SELECTED_THREAD_COUNT
+
+        current_number_per_thread = number_per_thread
+        for i in range(0, SELECTED_THREAD_COUNT):
+            number_per_thread = (current_number_per_thread + first) if i == 0 and first != 0 else current_number_per_thread
+            thread = threading.Thread(target=self.generate_publication_thread, args=(number_per_thread,))
+            thread_list.append(thread)
+
+        for thread in thread_list:
+            thread.start()
+
+        for thread in thread_list:
+            thread.join()
+
+        return publication_list
     
 class Constraint:
     def __init__(self, factor, operator, required_value) -> None:
@@ -318,7 +345,7 @@ import time
 
 def thread_generate_subscriptions():
     global thread_result
-    thread_result = sub_generator.generate_constraints()
+    # thread_result = sub_generator.generate_constraints()
 
 def validate_thread_count():
     if SELECTED_THREAD_COUNT < MIN_THREAD_COUNT or SELECTED_THREAD_COUNT > MAX_THREAD_COUNT:
@@ -331,13 +358,13 @@ if __name__ == "__main__":
     publications = generator.generate_publications(5)
     print(*[f"{str(x)}" for x in publications], sep='\n')
 
-    sub_generator = SubscriptionGeneratorV2(generator, 100, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
-    sub = sub_generator.compress_generated_constraints()
-    for s in sub:
-        print(s)
+    # sub_generator = SubscriptionGeneratorV2(generator, 100, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
+    # sub = sub_generator.compress_generated_constraints()
+    # for s in sub:
+    #     print(s)
         
     # our_thread = threading.Thread(target=thread_generate_subscriptions)
-    # start = time.time()gith
+    # start = time.time()
     # our_thread.start()
     
     # our_thread.join()
