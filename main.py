@@ -426,6 +426,38 @@ class SubscriptionGeneratorV2:
 
             np.random.shuffle(subscription_list)
         return subscription_list
+    
+def validate_generated_publications(pub_count, publications):
+    if len(publications) != pub_count:
+        logging.warning(f"The number of requested publications: {pub_count} does not match the number of publications generated: {len(publications)}")
+    
+    wrong_matched_count = 0
+    for publication in publications:
+        if publication.station_id not in STATIONS:
+            logging.error(f"The station id {publication.station_id} of the publication doesn't match any provided station id.")
+            wrong_matched_count += 1
+        if publication.city not in CITIES:
+            logging.error(f"The city {publication.city} of the publication doesn't match any procided city.")
+            wrong_matched_count += 1
+        if publication.direction not in DIRECTIONS:
+            logging.error(f"The direction {publication.direction} of the publication doesn't match any provided direction.")
+            wrong_matched_count += 1
+        if publication.date not in DATES:
+            logging.error(f"The date {publication.date} of the publication doesn't match any provided date.")
+            wrong_matched_count += 1
+        if publication.temp < TEMP_LIMITS[0] or publication.temp > TEMP_LIMITS[1]:
+            logging.error(f"The temp {publication.temp} of the publication doesn't fall within the imposed temp limits.")
+            wrong_matched_count += 1
+        if publication.rain < RAIN_LIMITS[0] or publication.rain > RAIN_LIMITS[1]:
+            logging.error(f"The rain {publication.rain} of the publication doesn't fall within the imposed rain limits.")
+            wrong_matched_count += 1
+        if publication.wind < WIND_LIMITS[0] or publication.wind > WIND_LIMITS[1]:
+            logging.error(f"The wind {publication.wind} of the publication doesn't fall within the imposed wind limits.")
+            wrong_matched_count += 1
+    
+    print(f"The percentage of wrong publications generated is: {(wrong_matched_count / pub_count) * 100}%")
+    print(f"The percentage of correct publications generated is: {((pub_count - wrong_matched_count) / pub_count) * 100}%")
+    
 
 def validate_thread_count():
     if SELECTED_THREAD_COUNT < MIN_THREAD_COUNT or SELECTED_THREAD_COUNT > MAX_THREAD_COUNT:
@@ -451,6 +483,8 @@ if __name__ == "__main__":
     publication_generator.generate_publications(publication_count)
     write_file("output.txt", f"PUBLICATIONS GENERATED: {publication_count}\n")
     [write_file("output.txt", f"{str(x)}\n") for x in publication_list]
+
+    validate_generated_publications(publication_count, publication_list)
 
     subscription_generator = SubscriptionGeneratorV2(publication_generator, subscription_count, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
 
