@@ -102,7 +102,7 @@ class PublicationGenerator:
         return new_publication
     
     def generate_publication_thread(self, number_of_publications):
-        publication_list.append([self.generate_publication() for _ in range(number_of_publications)])
+        publication_list.extend([self.generate_publication() for _ in range(number_of_publications)])
 
     def generate_publications(self, number):
         thread_list = list()
@@ -340,23 +340,27 @@ class SubscriptionGeneratorV2:
             np.random.shuffle(subscription_list)
         return subscription_list
 
-import threading
-import time
-
-def thread_generate_subscriptions():
-    global thread_result
-    # thread_result = sub_generator.generate_constraints()
-
 def validate_thread_count():
     if SELECTED_THREAD_COUNT < MIN_THREAD_COUNT or SELECTED_THREAD_COUNT > MAX_THREAD_COUNT:
         logging.error("Selected number of threads is out of bounds!")
         exit(1)
 
+def clean_file(file_path):
+    with open(file_path, 'w') as file:
+        pass
+
+def write_file(file_path, data):
+    with open(file_path, 'a') as file:
+        file.write(data)
+
 if __name__ == "__main__":
     validate_thread_count()
+    clean_file("output.txt")
     generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
-    publications = generator.generate_publications(5)
-    print(*[f"{str(x)}" for x in publications], sep='\n')
+    number_of_generated_publications = 5
+    generator.generate_publications(number_of_generated_publications)
+    write_file("output.txt", f"PUBLICATIONS GENERATED: {number_of_generated_publications}\n")
+    [write_file("output.txt", f"{str(x)}\n") for x in publication_list]
 
     # sub_generator = SubscriptionGeneratorV2(generator, 100, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
     # sub = sub_generator.compress_generated_constraints()

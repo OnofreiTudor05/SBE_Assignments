@@ -1,0 +1,6 @@
+PUBLICATIONS GENERATED: 5
+(stationId: 15);(city: Bucharest);(temp: -12);(rain: 0.91);(wind: 5);(direction: E);(date: 10.04.2023);
+(stationId: 7);(city: Bucharest);(temp: 9);(rain: 0.71);(wind: 33);(direction: S);(date: 11.04.2023);
+(stationId: 1);(city: Harlau);(temp: -15);(rain: 0.77);(wind: 74);(direction: SE);(date: 10.04.2023);
+(stationId: 7);(city: Bucharest);(temp: 38);(rain: 0.12);(wind: 84);(direction: SW);(date: 12.04.2023);
+(stationId: 4);(city: Braila);(temp: -2);(rain: 0.34);(wind: 49);(direction: SW);(date: 13.04.2023);
