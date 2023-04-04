@@ -44,6 +44,7 @@ for of in operator_filter:
 
 MIN_THREAD_COUNT = int(config_object["THREADSETUP"]["min_count"])
 MAX_THREAD_COUNT = int(config_object["THREADSETUP"]["max_count"])
+SELECTED_THREAD_COUNT = int(config_object["THREADSETUP"]["selected_count"])
 
 operator_dict = {
     '==': operator.eq,
@@ -319,7 +320,13 @@ def thread_generate_subscriptions():
     global thread_result
     thread_result = sub_generator.generate_constraints()
 
+def validate_thread_count():
+    if SELECTED_THREAD_COUNT < MIN_THREAD_COUNT or SELECTED_THREAD_COUNT > MAX_THREAD_COUNT:
+        logging.error("Selected number of threads is out of bounds!")
+        exit(1)
+
 if __name__ == "__main__":
+    validate_thread_count()
     generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
     publications = generator.generate_publications(5)
     print(*[f"{str(x)}" for x in publications], sep='\n')
@@ -330,7 +337,7 @@ if __name__ == "__main__":
         print(s)
         
     # our_thread = threading.Thread(target=thread_generate_subscriptions)
-    # start = time.time()
+    # start = time.time()gith
     # our_thread.start()
     
     # our_thread.join()
