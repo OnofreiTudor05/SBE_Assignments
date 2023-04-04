@@ -3,6 +3,7 @@ import operator
 import logging
 from configparser import ConfigParser
 import threading
+from collections import deque
 
 config_object = ConfigParser()
 config_object.read("config.ini")
@@ -58,6 +59,12 @@ operator_dict = {
 
 global publication_list
 publication_list = list()
+
+global combined_constraint_list
+combined_constraints_list = list()
+
+global subscription_list
+subscription_list = list()
 
 class Publication:
     def __init__(self, station_id=None, city=None, temp=None, rain=None, wind=None, direction=None, date=None) -> None:
@@ -222,13 +229,54 @@ class SubscriptionGeneratorV2:
                 logging.error(f"Invalid operator {me[1]}. It doesn't correspond with the available operators for the {me[0]} field.")
                 exit(1)
 
-    def generate_constraints(self):
-        # 0 field name 1 field weight 2 operator 3 operator weight
-        mapped_field_operator_weights = [t1 + t2 for t1, t2 in zip(self.required_field_weights, self.required_operator_weights)]
-        mapped_field_operator_weights = sorted(mapped_field_operator_weights, key=lambda x: x[1], reverse=True)
+    def group_fields_by_weight(self, sorted_map):
+        """The method takes a sorted map as input and returns a 
+        list of groups of fields, where each group contains fields
+        whose weights have a sum or less than 1.0.
+        It works by iterating over the sorted map and maintaining a current
+        group of fields and a current weight sum. For each field, it checks
+        whether adding it's weight to the current weight sum would exceed 1.
+        If not, it adds the field to the current group and updates the weight
+        sum. If adding the field would exceed 1.0, it starts a new group with
+        the current field and weight sum.
+        At the end, if there is a non-empty group left, it is added to the list
+        of groups.
 
-        combined_constraints_list = list()
-        for mfow in mapped_field_operator_weights:
+        Args:
+            sorted_map (list): sorted map containing field_weights mapping
+
+        Returns:
+            list: groups of field_weights mapped for thread usage
+        """
+        groups = list()
+        current_group = deque()
+        current_weight_sum = 0.0
+        last_index = -1
+
+        for i, (field_name, field_weight, operator, operator_weight) in enumerate(sorted_map):
+            if current_weight_sum + field_weight > 1.0:
+                if last_index >= 0:
+                    groups.append(list(current_group)[:(last_index + 1)])
+                    for _ in  range(last_index + 1):
+                        if current_group:
+                            current_group.popleft()
+                    current_weight_sum -= sum(field_weight for _, field_weight, _, _ in groups[-1])
+                    last_index = -1
+                else:
+                    groups.append([current_group.popleft()])
+                    current_weight_sum = 0.0
+            current_group.append((field_name, field_weight, operator, operator_weight))
+            current_weight_sum += field_weight
+            if last_index < 0 and current_weight_sum >= 1.0:
+                last_index = i
+
+        if current_group:
+            groups.append(list(current_group))
+
+        return groups
+    
+    def generate_constraints_thread(self, group):
+        for mfow in group:
             constraints_list = list()
             field_subscription_count = int(mfow[1] * self.subscription_count)
 
@@ -309,6 +357,45 @@ class SubscriptionGeneratorV2:
                     case _:
                         logging.error("Argument was not matched.")
             combined_constraints_list.append(constraints_list)
+
+    def generate_constraints(self):
+        """The method takes the field weights and operator weights and
+        created a sorted map depending on the weight of the field. Then
+        the result is grouped in lists of elements with a summed weight
+        less or equal to 1.0.
+        Each obtained group is passed to a thread which creates constraints
+        based on the weight of the fields and operators.
+
+        Returns:
+            list: a list of generated constraints.
+        """
+        # 0 field name 1 field weight 2 operator 3 operator weight
+        mapped_field_operator_weights = [t1 + t2 for t1, t2 in zip(self.required_field_weights, self.required_operator_weights)]
+        mapped_field_operator_weights = sorted(mapped_field_operator_weights, key=lambda x: x[1], reverse=True)
+
+        grouped_field_operator_weights = self.group_fields_by_weight(mapped_field_operator_weights)
+
+        thread_list = list()
+        for gfow in grouped_field_operator_weights:
+            thread = threading.Thread(target=self.generate_constraints_thread, args=(gfow,))
+            thread_list.append(thread)
+
+            if len(thread_list) == SELECTED_THREAD_COUNT:
+                for thread in thread_list:
+                    thread.start()
+
+                for thread in thread_list:
+                    thread.join()
+                
+                thread_list = list()
+
+        # Solve any remaining threads
+        for thread in thread_list:
+            thread.start()
+
+        for thread in thread_list:
+            thread.join()
+
         return combined_constraints_list
     
     def compress_generated_constraints(self):
@@ -356,36 +443,24 @@ def write_file(file_path, data):
 if __name__ == "__main__":
     validate_thread_count()
     clean_file("output.txt")
-    generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
-    number_of_generated_publications = 5
-    generator.generate_publications(number_of_generated_publications)
-    write_file("output.txt", f"PUBLICATIONS GENERATED: {number_of_generated_publications}\n")
+    publication_generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
+    
+    publication_count = int(config_object["PUBLICATIONSETUP"]["publication_count"])
+    subscription_count = int(config_object["SUBSCRIPTIONSETUP"]["subscription_count"])
+
+    publication_generator.generate_publications(publication_count)
+    write_file("output.txt", f"PUBLICATIONS GENERATED: {publication_count}\n")
     [write_file("output.txt", f"{str(x)}\n") for x in publication_list]
 
-    # sub_generator = SubscriptionGeneratorV2(generator, 100, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
-    # sub = sub_generator.compress_generated_constraints()
-    # for s in sub:
-    #     print(s)
-        
-    # our_thread = threading.Thread(target=thread_generate_subscriptions)
-    # start = time.time()
-    # our_thread.start()
-    
-    # our_thread.join()
-    
-    # print('OUR Thread result:', thread_result)
+    subscription_generator = SubscriptionGeneratorV2(publication_generator, subscription_count, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
 
-    
-#     thread = threading.Thread(target=thread_func)
-#     thread.start()
-    
-#     start = time.time()
-#     threading_obj = threading.Thread(target=sub_generator.generate_subscriptions, args=())
-#     threading_obj.start()
-#     threading_obj.join()
-    # end = time.time()
-    # print(f"Duration: {end - start}")
-    # constraints = sub_generator.generate_subscriptions()
-    # for constraint in constraints:
-    #     for c in constraint:
-    #         print(str(c))
+    mapped_field_operator_weights = [t1 + t2 for t1, t2 in zip(subscription_generator.required_field_weights, subscription_generator.required_operator_weights)]
+    mapped_field_operator_weights = sorted(mapped_field_operator_weights, key=lambda x: x[1], reverse=True)
+    dd = subscription_generator.group_fields_by_weight(mapped_field_operator_weights)
+    # for d in dd:
+    #     print(d)
+    # test = subscription_generator.generate_constraints()
+    # for tt in test:
+    #     for t in tt:
+    #         print(str(t))
+
