@@ -48,6 +48,9 @@ MIN_THREAD_COUNT = int(config_object["THREADSETUP"]["min_count"])
 MAX_THREAD_COUNT = int(config_object["THREADSETUP"]["max_count"])
 SELECTED_THREAD_COUNT = int(config_object["THREADSETUP"]["selected_count"])
 
+PUBLICATION_COUNT = int(config_object["PUBLICATIONSETUP"]["publication_count"])
+SUBSCRIPTION_COUNT = int(config_object["SUBSCRIPTIONSETUP"]["subscription_count"])
+
 operator_dict = {
     '==': operator.eq,
     "!=": operator.ne,
@@ -339,9 +342,6 @@ class SubscriptionGeneratorV2:
         mapped_elements = list(map(lambda t: (t[0][0], t[1][0]), zip(self.required_field_weights, self.required_operator_weights)))
         for me in mapped_elements:
             if me[1] not in VALID_OPERATIONS[me[0]]:
-                print(me[1])
-                print(VALID_OPERATIONS)
-                print(VALID_OPERATIONS[me[0]])
                 logging.error(f"Invalid operator {me[1]}. It doesn't correspond with the available operators for the {me[0]} field.")
                 exit(1)
 
@@ -679,11 +679,22 @@ def validate_generated_subscriptions(sub_count, subscriptions):
     print(f"The percentage of correct subscriptions generated is: {((sub_count - wrong_matched_count) / sub_count) * 100}%")
 
 def validate_thread_count():
-    """Validates the nubmer of threads given in the config. If it
+    """Validates the number of threads given in the config. If it
     is a value that doesn't match the requirements, the program stops.
     """
     if SELECTED_THREAD_COUNT < MIN_THREAD_COUNT or SELECTED_THREAD_COUNT > MAX_THREAD_COUNT:
         logging.error("Selected number of threads is out of bounds!")
+        exit(1)
+
+def validate_generation_counts():
+    """Validates the number of subscriptions and publications to be 
+    generated that were given in the config. If it is a value that 
+    is zero, the program stops.
+    """
+    publication_count = int(config_object["PUBLICATIONSETUP"]["publication_count"])
+    subscription_count = int(config_object["SUBSCRIPTIONSETUP"]["subscription_count"])
+    if publication_count <= 0 or subscription_count <= 0:
+        logging.error("Selected number of subscriptions/publications to be generated is not a valid value.")
         exit(1)
 
 def clean_file(file_path):
@@ -708,20 +719,24 @@ def write_file(file_path, data):
 
 if __name__ == "__main__":
     validate_thread_count()
-    clean_file("output.txt")
-    publication_generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
-    
-    publication_count = int(config_object["PUBLICATIONSETUP"]["publication_count"])
-    subscription_count = int(config_object["SUBSCRIPTIONSETUP"]["subscription_count"])
+    validate_generation_counts()
 
-    publication_generator.generate_publications(publication_count)
-    write_file("output.txt", f"PUBLICATIONS GENERATED: {publication_count}\n")
+    clean_file("output.txt")
+
+    publication_generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
+
+    publication_generator.generate_publications(PUBLICATION_COUNT)
+    write_file("output.txt", f"PUBLICATIONS GENERATED: {len(publication_list)}\n")
     [write_file("output.txt", f"{str(x)}\n") for x in publication_list]
 
-    validate_generated_publications(publication_count, publication_list)
+    validate_generated_publications(PUBLICATION_COUNT, publication_list)
 
-    subscription_generator = SubscriptionGeneratorV2(publication_generator, subscription_count, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
+    subscription_generator = SubscriptionGeneratorV2(publication_generator, SUBSCRIPTION_COUNT, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
 
     subscription_list = subscription_generator.compress_generated_constraints()
-    validate_generated_subscriptions(subscription_count, subscription_list)
+    write_file("output.txt", f"SUBSCRIPTIONS GENERATED: {len(subscription_list)}\n")
+    [write_file("output.txt", f"{str(x)}\n") for x in subscription_list]
+    validate_generated_subscriptions(SUBSCRIPTION_COUNT, subscription_list)
+
+    
 
