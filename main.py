@@ -20,9 +20,9 @@ FIELDS = config_object["FIELDS"]["fields"].split()
 OPERATORS = config_object["FIELDS"]["operators"].split()
 VALID_OPERATIONS = {
     "stationId": config_object["FIELDVALIDOPERATORS"]["opstationId"].split(),
-    "city": [config_object["FIELDVALIDOPERATORS"]["opcity"]],
-    "direction": [config_object["FIELDVALIDOPERATORS"]["opdirection"]],
-    "date": [config_object["FIELDVALIDOPERATORS"]["opdate"]],
+    "city": config_object["FIELDVALIDOPERATORS"]["opcity"].split(),
+    "direction": config_object["FIELDVALIDOPERATORS"]["opdirection"].split(),
+    "date": config_object["FIELDVALIDOPERATORS"]["opdate"].split(),
     "temp": config_object["FIELDVALIDOPERATORS"]["optemp"].split(),
     "wind": config_object["FIELDVALIDOPERATORS"]["opwind"].split(),
     "rain": config_object["FIELDVALIDOPERATORS"]["oprain"].split()
@@ -226,6 +226,9 @@ class SubscriptionGeneratorV2:
         mapped_elements = list(map(lambda t: (t[0][0], t[1][0]), zip(self.required_field_weights, self.required_operator_weights)))
         for me in mapped_elements:
             if me[1] not in VALID_OPERATIONS[me[0]]:
+                print(me[1])
+                print(VALID_OPERATIONS)
+                print(VALID_OPERATIONS[me[0]])
                 logging.error(f"Invalid operator {me[1]}. It doesn't correspond with the available operators for the {me[0]} field.")
                 exit(1)
 
@@ -433,31 +436,89 @@ def validate_generated_publications(pub_count, publications):
     
     wrong_matched_count = 0
     for publication in publications:
+        wrong_flag = False
         if publication.station_id not in STATIONS:
             logging.error(f"The station id {publication.station_id} of the publication doesn't match any provided station id.")
-            wrong_matched_count += 1
+            wrong_flag = True
         if publication.city not in CITIES:
             logging.error(f"The city {publication.city} of the publication doesn't match any procided city.")
-            wrong_matched_count += 1
+            wrong_flag = True
         if publication.direction not in DIRECTIONS:
             logging.error(f"The direction {publication.direction} of the publication doesn't match any provided direction.")
-            wrong_matched_count += 1
+            wrong_flag = True
         if publication.date not in DATES:
             logging.error(f"The date {publication.date} of the publication doesn't match any provided date.")
-            wrong_matched_count += 1
+            wrong_flag = True
         if publication.temp < TEMP_LIMITS[0] or publication.temp > TEMP_LIMITS[1]:
             logging.error(f"The temp {publication.temp} of the publication doesn't fall within the imposed temp limits.")
-            wrong_matched_count += 1
+            wrong_flag = True
         if publication.rain < RAIN_LIMITS[0] or publication.rain > RAIN_LIMITS[1]:
             logging.error(f"The rain {publication.rain} of the publication doesn't fall within the imposed rain limits.")
-            wrong_matched_count += 1
+            wrong_flag = True
         if publication.wind < WIND_LIMITS[0] or publication.wind > WIND_LIMITS[1]:
             logging.error(f"The wind {publication.wind} of the publication doesn't fall within the imposed wind limits.")
+            wrong_flag = True
+        if wrong_flag:
             wrong_matched_count += 1
     
     print(f"The percentage of wrong publications generated is: {(wrong_matched_count / pub_count) * 100}%")
     print(f"The percentage of correct publications generated is: {((pub_count - wrong_matched_count) / pub_count) * 100}%")
+
+def validate_generated_subscriptions(sub_count, subscriptions):
+    if sub_count != len(subscriptions):
+        logging.warning(f"The number of requested publications: {sub_count} does not match the number of publications generated: {len(subscriptions)}")
+
+    wrong_matched_count = 0
+    for subscription in subscriptions:
+        wrong_flag = False
+        for constraint in subscription.constraints:
+            if constraint.factor not in VALID_OPERATIONS:
+                logging.error(f"The constraint factor '{constraint.factor}' of the subscription doesn't match any available constraint factors.")
+                wrong_flag = True
+                continue
+            if constraint.operator not in VALID_OPERATIONS[constraint.factor]:
+                print(constraint.operator)
+                print(VALID_OPERATIONS[constraint.factor])
+                logging.error(f"The constraint operator '{constraint.operator}' of the subscription doesn't match any available constraint operators.")
+                wrong_flag = True
+            match constraint.factor:
+                case "city":
+                    if constraint.required_value not in CITIES:
+                        logging.error(f"The constraint value '{constraint.required_value}' of the subscription doesn't match any provided city value.")
+                        wrong_flag = True
+                case "stationId":
+                    if constraint.required_value not in STATIONS:
+                        logging.error(f"The constraint value '{constraint.required_value}' of the subscription doesn't match any provided station_id value.")
+                        wrong_flag = True
+                case "direction":
+                    if constraint.required_value not in DIRECTIONS:
+                        logging.error(f"The constraint value '{constraint.required_value}' of the subscription doesn't match any provided direction value.")
+                        wrong_flag = True
+                case "date":
+                    if constraint.required_value not in DATES:
+                        logging.error(f"The constraint value '{constraint.required_value}' of the subscription doesn't match any provided date value.")
+                        wrong_flag = True
+                case "temp":
+                    if constraint.required_value < TEMP_LIMITS[0] or constraint.required_value > TEMP_LIMITS[1]:
+                        logging.error(f"The constraint value '{constraint.required_value}' of the subscription doesn't fall within the imposed temp limits.")
+                        wrong_flag = True
+                case "wind":
+                    if constraint.required_value < WIND_LIMITS[0] or constraint.required_value > WIND_LIMITS[1]:
+                        logging.error(f"The constraint value '{constraint.required_value}' of the subscription doesn't fall within the imposed wind limits.")
+                        wrong_flag = True
+                case "rain":
+                    if constraint.required_value < RAIN_LIMITS[0] or constraint.required_value > RAIN_LIMITS[1]:
+                        logging.error(f"The constraint value '{constraint.required_value}' of the subscription doesn't fall within the imposed rain limits.")
+                        wrong_flag = True
+                case _:
+                    logging.error(f"The constraint value '{constraint.required_value}' of the subscription doesn't match any available constraint values or limits.")
+                    wrong_flag = True
+
+        if wrong_flag:
+            wrong_matched_count += 1
     
+    print(f"The percentage of wrong subscriptions generated is: {(wrong_matched_count / sub_count) * 100}%")
+    print(f"The percentage of correct subscriptions generated is: {((sub_count - wrong_matched_count) / sub_count) * 100}%")
 
 def validate_thread_count():
     if SELECTED_THREAD_COUNT < MIN_THREAD_COUNT or SELECTED_THREAD_COUNT > MAX_THREAD_COUNT:
@@ -488,13 +549,6 @@ if __name__ == "__main__":
 
     subscription_generator = SubscriptionGeneratorV2(publication_generator, subscription_count, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
 
-    mapped_field_operator_weights = [t1 + t2 for t1, t2 in zip(subscription_generator.required_field_weights, subscription_generator.required_operator_weights)]
-    mapped_field_operator_weights = sorted(mapped_field_operator_weights, key=lambda x: x[1], reverse=True)
-    dd = subscription_generator.group_fields_by_weight(mapped_field_operator_weights)
-    # for d in dd:
-    #     print(d)
-    # test = subscription_generator.generate_constraints()
-    # for tt in test:
-    #     for t in tt:
-    #         print(str(t))
+    test = subscription_generator.compress_generated_constraints()
+    validate_generated_subscriptions(subscription_count, test)
 

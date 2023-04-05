@@ -1,6 +1,6 @@
 PUBLICATIONS GENERATED: 5
-(stationId: 69);(city: Darabani);(temp: -12);(rain: 0.0);(wind: 43);(direction: NE);(date: 15.04.2023);
-(stationId: 4);(city: Darabani);(temp: 8);(rain: 0.08);(wind: 53);(direction: W);(date: 15.04.2023);
-(stationId: 1);(city: Galati);(temp: 8);(rain: 0.56);(wind: 65);(direction: E);(date: 10.04.2023);
-(stationId: 1);(city: Galati);(temp: -9);(rain: 0.31);(wind: 87);(direction: S);(date: 13.04.2023);
-(stationId: 15);(city: Bucharest);(temp: 34);(rain: 0.9);(wind: 82);(direction: N);(date: 12.04.2023);
+(stationId: 27);(city: Galati);(temp: 27);(rain: 0.29);(wind: 15);(direction: N);(date: 10.04.2023);
+(stationId: 23);(city: Darabani);(temp: -18);(rain: 0.21);(wind: 90);(direction: NE);(date: 16.04.2023);
+(stationId: 4);(city: Bucharest);(temp: 37);(rain: 0.57);(wind: 70);(direction: SW);(date: 16.04.2023);
+(stationId: 4);(city: Braila);(temp: 28);(rain: 0.41);(wind: 60);(direction: N);(date: 16.04.2023);
+(stationId: 4);(city: Braila);(temp: 32);(rain: 0.03);(wind: 20);(direction: SW);(date: 12.04.2023);
