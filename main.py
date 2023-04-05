@@ -4,6 +4,7 @@ import logging
 from configparser import ConfigParser
 import threading
 from collections import deque
+import time
 
 config_object = ConfigParser()
 config_object.read("config.ini")
@@ -50,6 +51,8 @@ SELECTED_THREAD_COUNT = int(config_object["THREADSETUP"]["selected_count"])
 
 PUBLICATION_COUNT = int(config_object["PUBLICATIONSETUP"]["publication_count"])
 SUBSCRIPTION_COUNT = int(config_object["SUBSCRIPTIONSETUP"]["subscription_count"])
+
+OUTPUT_FILE = config_object["OUTPUTFILE"]["output_file"]
 
 operator_dict = {
     '==': operator.eq,
@@ -721,21 +724,27 @@ if __name__ == "__main__":
     validate_thread_count()
     validate_generation_counts()
 
-    clean_file("output.txt")
+    clean_file(OUTPUT_FILE)
 
     publication_generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
 
+    start = time.time()
     publication_generator.generate_publications(PUBLICATION_COUNT)
-    write_file("output.txt", f"PUBLICATIONS GENERATED: {len(publication_list)}\n")
-    [write_file("output.txt", f"{str(x)}\n") for x in publication_list]
+    end = time.time()
+    write_file(OUTPUT_FILE, f"PUBLICATIONS GENERATED: {len(publication_list)}\n")
+    write_file(OUTPUT_FILE, f"Time spent generating: {end - start}ms\n")
+    [write_file(OUTPUT_FILE, f"{str(x)}\n") for x in publication_list]
 
     validate_generated_publications(PUBLICATION_COUNT, publication_list)
 
     subscription_generator = SubscriptionGeneratorV2(publication_generator, SUBSCRIPTION_COUNT, FIELD_WEIGHTS, OPERATOR_WEIGHTS)
 
+    start = time.time()
     subscription_list = subscription_generator.compress_generated_constraints()
-    write_file("output.txt", f"SUBSCRIPTIONS GENERATED: {len(subscription_list)}\n")
-    [write_file("output.txt", f"{str(x)}\n") for x in subscription_list]
+    end = time.time()
+    write_file(OUTPUT_FILE, f"SUBSCRIPTIONS GENERATED: {len(subscription_list)}\n")
+    write_file(OUTPUT_FILE, f"Time spent generating: {end - start}ms\n")
+    [write_file(OUTPUT_FILE, f"{str(x)}\n") for x in subscription_list]
     validate_generated_subscriptions(SUBSCRIPTION_COUNT, subscription_list)
 
     
