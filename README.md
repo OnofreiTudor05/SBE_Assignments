@@ -10,4 +10,6 @@
 
 ![image](https://user-images.githubusercontent.com/38893360/230396859-80ef575d-3eed-4072-bfc0-361bf4382282.png)
 
+![image](https://user-images.githubusercontent.com/38893360/230399915-cbffe744-2a90-4a1c-a412-184c7aa5ef6a.png)
+
 ## Team: Onofrei Tudor, Constantinescu George-Gabriel, Filimon Danut-Dumitru
