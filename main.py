@@ -31,17 +31,17 @@ VALID_OPERATIONS = {
 
 field_filter = ["fwstationIds", "fwcities", "fwdirections", "fwdates", "fwtemp", "fwwind", "fwrain"]
 FIELD_WEIGHTS = []
+sum = 0
 for ff in field_filter:
-    sum = 0
     try:
         tup = tuple(float(val) if "." in val else val for val in config_object["FIELDWEIGHTS"][ff].split())
         FIELD_WEIGHTS.append(tup)
         sum += tup[1]
     except KeyError:
         pass
-    if sum < 1.0:
-        logging.error("Not enough field weight.")
-        exit(1)
+if sum < 1.0:
+    logging.error("Not enough field weight.")
+    exit(1)
 
 operator_filter = ["owstationIds", "owcities", "owdirections", "owdates", "owtemp", "owwind", "owrain"]
 OPERATOR_WEIGHTS = []
