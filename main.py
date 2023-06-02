@@ -5,6 +5,7 @@ from configparser import ConfigParser
 import threading
 from collections import deque
 import time
+import json
 
 config_object = ConfigParser()
 config_object.read("config.ini")
@@ -31,15 +32,15 @@ VALID_OPERATIONS = {
 
 field_filter = ["fwstationIds", "fwcities", "fwdirections", "fwdates", "fwtemp", "fwwind", "fwrain"]
 FIELD_WEIGHTS = []
-sum = 0
+sum_tmp = 0
 for ff in field_filter:
     try:
         tup = tuple(float(val) if "." in val else val for val in config_object["FIELDWEIGHTS"][ff].split())
         FIELD_WEIGHTS.append(tup)
-        sum += tup[1]
+        sum_tmp += tup[1]
     except KeyError:
         pass
-if sum < 1.0:
+if sum_tmp < 1.0:
     logging.error("Not enough field weight.")
     exit(1)
 
@@ -59,6 +60,8 @@ PUBLICATION_COUNT = int(config_object["PUBLICATIONSETUP"]["publication_count"])
 SUBSCRIPTION_COUNT = int(config_object["SUBSCRIPTIONSETUP"]["subscription_count"])
 
 OUTPUT_FILE = config_object["OUTPUTFILE"]["output_file"]
+
+JSON_OUTPUT = config_object["OUTPUTFILE"]["to_json"]
 
 operator_dict = {
     '==': operator.eq,
@@ -114,6 +117,18 @@ class Publication:
             f"(direction: {self.direction});",
             f"(date: {self.date});"
         ))
+    
+    def json_representation(self):
+        representation = dict()
+        representation["station_id"] = self.station_id
+        representation["city"] = self.city
+        representation["temp"] = self.temp
+        representation["rain"] = self.rain
+        representation["wind"] = self.wind
+        representation["direction"] = self.direction
+        representation["date"] = self.date
+        return representation
+
 
 class PublicationGenerator:
     def __init__(self, station_pool, city_pool, direction_pool, date_pool, temp_limits, wind_limits, rain_limits) -> None:
@@ -279,6 +294,16 @@ class Subscription:
         current_operation = operator_dict.get(current_constraint.operator)
         evaluation_string = "current_operation(getattr(publication, current_constraint.factor), current_constraint.required_value)"
         return eval(evaluation_string)
+    
+    def json_representation(self):
+        representation = list()
+        for constraint in self.constraints:
+            tmp = dict()
+            tmp["factor"] = constraint.factor
+            tmp["operator"] = constraint.operator
+            tmp["required_value"] = constraint.required_value
+            representation.append(tmp)
+        return representation
     
 class SubscriptionGeneratorV2:
     def __init__(self, publication_generator=None, subscription_count=None, required_field_weights=None, required_operator_weights=None) -> None:
@@ -730,16 +755,26 @@ if __name__ == "__main__":
     validate_thread_count()
     validate_generation_counts()
 
-    clean_file(OUTPUT_FILE)
+    if JSON_OUTPUT != "1":
+        clean_file(OUTPUT_FILE)
 
     publication_generator = PublicationGenerator(STATIONS, CITIES, DIRECTIONS, DATES, TEMP_LIMITS, WIND_LIMITS, RAIN_LIMITS)
 
     start = time.time()
     publication_generator.generate_publications(PUBLICATION_COUNT)
     end = time.time()
-    write_file(OUTPUT_FILE, f"PUBLICATIONS GENERATED: {len(publication_list)}\n")
-    write_file(OUTPUT_FILE, f"Time spent generating: {end - start}ms\n")
-    [write_file(OUTPUT_FILE, f"{str(x)}\n") for x in publication_list]
+
+    if JSON_OUTPUT != "1":
+        write_file(OUTPUT_FILE, f"PUBLICATIONS GENERATED: {len(publication_list)}\n")
+        write_file(OUTPUT_FILE, f"Time spent generating: {end - start}ms\n")
+        [write_file(OUTPUT_FILE, f"{str(x)}\n") for x in publication_list]
+    else:
+        with open("publications.json", "w") as file:
+            publications = list()
+            for publication in publication_list:
+                publications.append(publication.json_representation())
+            publications_data = json.dumps(publications)
+            file.write(publications_data)
 
     validate_generated_publications(PUBLICATION_COUNT, publication_list)
 
@@ -748,9 +783,18 @@ if __name__ == "__main__":
     start = time.time()
     subscription_list = subscription_generator.compress_generated_constraints()
     end = time.time()
-    write_file(OUTPUT_FILE, f"SUBSCRIPTIONS GENERATED: {len(subscription_list)}\n")
-    write_file(OUTPUT_FILE, f"Time spent generating: {end - start}ms\n")
-    [write_file(OUTPUT_FILE, f"{str(x)}\n") for x in subscription_list]
+
+    if JSON_OUTPUT != "1":
+        write_file(OUTPUT_FILE, f"SUBSCRIPTIONS GENERATED: {len(subscription_list)}\n")
+        write_file(OUTPUT_FILE, f"Time spent generating: {end - start}ms\n")
+        [write_file(OUTPUT_FILE, f"{str(x)}\n") for x in subscription_list]
+    else:
+        with open("subscriptions.json", "w") as file:
+            subscriptions = list()
+            for subscription in subscription_list:
+                subscriptions.append(subscription.json_representation())
+            subscriptions_data = json.dumps(subscriptions)
+            file.write(subscriptions_data)
     validate_generated_subscriptions(SUBSCRIPTION_COUNT, subscription_list)
 
     
